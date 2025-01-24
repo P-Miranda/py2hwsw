@@ -63,6 +63,7 @@ ifneq ($(FPGA_STUB),)
 endif
 endif
 
+BOARD_SERIAL_PORT ?=/dev/usb-uart
 #console start command
 CONSOLE_CMD ?=$(PYTHON_DIR)/console.py -s $(BOARD_SERIAL_PORT)
 
@@ -97,6 +98,10 @@ endif
 
 test: $(TEST_LIST)
 
+build_deps: $(RUN_DEPS)
+
+run_deps: $(RUN_DEPS)
+
 debug:
 	@echo SIMULATOR=$(SIMULATOR)
 	@echo BOARD=$(BOARD)
@@ -107,4 +112,4 @@ debug:
 
 .PRECIOUS: $(FPGA_OBJ) test.log s_fw.bin
 
-.PHONY: run build clean debug test $(TEST_LIST)
+.PHONY: run build clean debug test build_deps run_deps $(TEST_LIST)

@@ -26,6 +26,7 @@ import doc_gen
 import verilog_gen
 import ipxact_gen
 
+from if_gen import mem_if_names
 from iob_module import iob_module
 from iob_instance import iob_instance
 from iob_base import (
@@ -155,7 +156,7 @@ class iob_core(iob_module, iob_instance):
         )
         self.set_default_attribute(
             "generate_hw",
-            True,
+            False,
             bool,
             descr="Select if should try to generate `<corename>.v` from py2hwsw dictionary. Otherwise, only generate `.vs` files.",
         )
@@ -195,14 +196,28 @@ class iob_core(iob_module, iob_instance):
         build_dir_backup = __class__.global_build_dir
         if attributes.get("is_tester", False):
             # If is tester, build dir is same "dest_dir". (default: submodules/tester)
+            self.relative_path_to_tester = kwargs.get("dest_dir", "submodules/tester")
             __class__.global_build_dir = os.path.join(
-                __class__.global_build_dir, kwargs.get("dest_dir", "submodules/tester")
+                __class__.global_build_dir, self.relative_path_to_tester
             )
             self.dest_dir = "hardware/src"
 
         # Read 'attributes' dictionary and set corresponding core attributes
         superblocks = attributes.pop("superblocks", [])
         self.parse_attributes_dict(attributes)
+
+        # Connect ports of this instance to external wires (wires of the instantiator)
+        self.connect_instance_ports(connect, self.instantiator)
+
+        # Create memory wrapper for top module if any memory interfaces are used
+        if self.is_top_module or self.is_tester:
+            if any(
+                (port.interface.type in mem_if_names and port.name.endswith("m"))
+                for port in self.ports
+                if port.interface
+            ):
+                superblocks = self.__create_memwrapper(superblocks=superblocks)
+
         # Ensure superblocks are set up last
         # and only for top module (or wrappers of it)
         if self.is_top_module or self.is_superblock:
@@ -210,9 +225,6 @@ class iob_core(iob_module, iob_instance):
         if self.is_superblock:
             # Generate verilog parameters of instantiator subblock
             param_gen.generate_inst_params(self.instantiator)
-
-        # Connect ports of this instance to external wires (wires of the instantiator)
-        self.connect_instance_ports(connect, self.instantiator)
 
         if not self.is_top_module:
             self.build_dir = __class__.global_build_dir
@@ -246,7 +258,7 @@ class iob_core(iob_module, iob_instance):
 
         # Generate config_build.mk
         if self.is_top_module or self.is_tester:
-            config_gen.config_build_mk(self)
+            config_gen.config_build_mk(self, __class__.global_top_module)
 
         # Generate configuration files
         config_gen.generate_confs(self)
@@ -445,6 +457,17 @@ class iob_core(iob_module, iob_instance):
                 __class__.global_build_dir = f"../{self.name}_V{self.version}"
             self.set_default_attribute("build_dir", __class__.global_build_dir)
 
+    def __connect_memory(self, port, instantiator):
+        """Create memory port in instantiatior and connect it to self"""
+        _name = f"{port.name}"
+        _signals = {k: v for k, v in port.interface.__dict__.items() if k != "widths"}
+        _signals.update(port.interface.widths)
+        if _signals["prefix"] == "":
+            _signals.update({"prefix": f"{_name}_"})
+        instantiator.create_port(name=_name, signals=_signals, descr=port.descr)
+        _port = find_obj_in_list(instantiator.ports + instantiator.wires, _name)
+        port.connect_external(_port, bit_slices=[])
+
     def connect_instance_ports(self, connect, instantiator):
         """
         param connect: External wires to connect to ports of this instance
@@ -485,6 +508,26 @@ class iob_core(iob_module, iob_instance):
                     f"Wire/port '{wire_name}' not found in module '{instantiator.name}'!"
                 )
             port.connect_external(wire, bit_slices=bit_slices)
+        for port in self.ports:
+            if not port.e_connect and port.interface:
+                if (
+                    port.interface.type in mem_if_names
+                    and instantiator
+                    and not self.is_tester
+                ):
+                    self.__connect_memory(port, instantiator)
+
+    def __create_memwrapper(self, superblocks):
+        """Create memory wrapper for top module"""
+        new_superblocks = [
+            {
+                "core_name": "iob_memwrapper",
+                "instance_name": f"{self.name}_memwrapper",
+                "mem_if_names": mem_if_names,
+                "superblocks": superblocks,
+            },
+        ]
+        return new_superblocks
 
     def __create_build_dir(self):
         """Create build directory if it doesn't exist"""

@@ -6,6 +6,7 @@
 def setup(py_params_dict):
     attributes_dict = {
         "version": "0.1",
+        "generate_hw": True,
         "confs": [
             {
                 "name": "HEXFILE",
@@ -42,24 +43,9 @@ def setup(py_params_dict):
         ],
         "ports": [
             {
-                "name": "clk_i",
-                "descr": "Clock",
-                "signals": [
-                    {"name": "clk_i", "width": 1},
-                ],
-            },
-            {
-                "name": "rom_if_io",
-                "descr": "Memory interface",
-                "signals": [
-                    {"name": "r_en_i", "width": 1},
-                    {"name": "addr_i", "width": "ADDR_W"},
-                    {
-                        "name": "r_data_o",
-                        "width": "DATA_W",
-                        "isvar": True,
-                    },
-                ],
+                "name": "rom_sp_s",
+                "descr": "ROM interface",
+                "signals": {"type": "rom_sp"},
             },
         ],
         "superblocks": [
@@ -85,7 +71,7 @@ def setup(py_params_dict):
    endgenerate
 
    // Operate the ROM
-   always @(posedge clk_i) if (r_en_i)
+   always @(posedge clk_i) if (en_i) 
    r_data_o <= rom[addr_i];
             """,
             },

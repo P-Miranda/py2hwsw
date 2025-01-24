@@ -79,6 +79,7 @@ module iob_axi_ram #(
    localparam VALID_ADDR_WIDTH = ADDR_WIDTH - $clog2(STRB_WIDTH);
    localparam WORD_WIDTH = STRB_WIDTH;
    localparam WORD_SIZE = DATA_WIDTH / WORD_WIDTH;
+   localparam CLOG2_STRB_WIDTH = $clog2(STRB_WIDTH);
 
    // bus width assertions
    initial begin
@@ -129,12 +130,10 @@ module iob_axi_ram #(
    reg axi_rvalid_pipe_reg;
 
    // (* RAM_STYLE="BLOCK" *)
-   reg [DATA_WIDTH-1:0] mem[2**VALID_ADDR_WIDTH-1:0];
+   reg [DATA_WIDTH-1:0] mem[2**VALID_ADDR_WIDTH];
 
-   wire [VALID_ADDR_WIDTH-1:0] axi_awaddr_valid = axi_awaddr_i >> (ADDR_WIDTH - VALID_ADDR_WIDTH);
-   wire [VALID_ADDR_WIDTH-1:0] axi_araddr_valid = axi_araddr_i >> (ADDR_WIDTH - VALID_ADDR_WIDTH);
-   wire [VALID_ADDR_WIDTH-1:0] read_addr_valid = read_addr_reg >> (ADDR_WIDTH - VALID_ADDR_WIDTH);
-   wire [VALID_ADDR_WIDTH-1:0] write_addr_valid = write_addr_reg >> (ADDR_WIDTH - VALID_ADDR_WIDTH);
+   wire [VALID_ADDR_WIDTH-1:0] read_addr_valid = read_addr_reg[(ADDR_WIDTH - VALID_ADDR_WIDTH)+:VALID_ADDR_WIDTH];
+   wire [VALID_ADDR_WIDTH-1:0] write_addr_valid = write_addr_reg[(ADDR_WIDTH - VALID_ADDR_WIDTH)+:VALID_ADDR_WIDTH];
 
    assign axi_awready_o = axi_awready_reg;
    assign axi_wready_o  = axi_wready_reg;
@@ -167,26 +166,24 @@ module iob_axi_ram #(
          end
       end else begin : g_no_read_on_write
          localparam file_suffix = {"7", "6", "5", "4", "3", "2", "1", "0"};
-         wire [VALID_ADDR_WIDTH-1:0] ram_addr_valid;
-         wire [      WORD_WIDTH-1:0] ram_en;
-         assign ram_addr_valid = mem_wr_en ? write_addr_valid : read_addr_valid;
          for (i = 0; i < WORD_WIDTH; i = i + 1) begin : g_Bytes_in_word
             localparam mem_init_file_int = (FILE != "none") ?
              {FILE, "_", file_suffix[8*(i+1)-1-:8], ".hex"} : "none";
-            assign ram_en[i] = mem_wr_en ? axi_wstrb_i[i] : 1'b1;
-
-            iob_ram_sp #(
+            iob_ram_t2p #(
                .HEXFILE(mem_init_file_int),
                .ADDR_W (VALID_ADDR_WIDTH),
                .DATA_W (WORD_SIZE)
             ) ram (
                .clk_i(clk_i),
 
-               .en_i  (ram_en[i]),
-               .addr_i(ram_addr_valid),
-               .d_i   (axi_wdata_i[WORD_SIZE*i+:WORD_SIZE]),
-               .we_i  (mem_wr_en),
-               .d_o   (axi_rdata_reg[WORD_SIZE*i+:WORD_SIZE])
+               // Read port
+               .r_en_i  (read_state_reg == READ_STATE_BURST),
+               .r_addr_i(read_addr_valid),
+               .r_data_o(axi_rdata_reg[WORD_SIZE*i+:WORD_SIZE]),
+               // Write port
+               .w_en_i  (mem_wr_en & axi_wstrb_i[i]),
+               .w_addr_i(write_addr_valid),
+               .w_data_i(axi_wdata_i[WORD_SIZE*i+:WORD_SIZE])
             );
          end
       end
@@ -217,8 +214,8 @@ module iob_axi_ram #(
                write_id_next = axi_awid_i;
                write_addr_next = axi_awaddr_i;
                write_count_next = axi_awlen_i;
-               write_size_next = axi_awsize_i < $clog2(STRB_WIDTH) ? axi_awsize_i :
-                   $clog2(STRB_WIDTH);
+               write_size_next = axi_awsize_i < CLOG2_STRB_WIDTH ? axi_awsize_i :
+                   CLOG2_STRB_WIDTH[2:0];
                write_burst_next = axi_awburst_i;
 
                axi_awready_next = 1'b0;
@@ -234,9 +231,9 @@ module iob_axi_ram #(
             if (axi_wready_o && axi_wvalid_i) begin
                mem_wr_en = 1'b1;
                if (write_burst_reg != 2'b00) begin
-                  write_addr_next = write_addr_reg + (1 << write_size_reg);
+                  write_addr_next = write_addr_reg + (1'b1 << write_size_reg);
                end
-               write_count_next = write_count_reg - 1;
+               write_count_next = write_count_reg - 1'b1;
                if (write_count_reg > 0) begin
                   write_state_next = WRITE_STATE_BURST;
                end else begin
@@ -322,8 +319,8 @@ module iob_axi_ram #(
                read_id_next = axi_arid_i;
                read_addr_next = axi_araddr_i;
                read_count_next = axi_arlen_i;
-               read_size_next = axi_arsize_i < $clog2(STRB_WIDTH) ? axi_arsize_i :
-                   $clog2(STRB_WIDTH);
+               read_size_next = axi_arsize_i < CLOG2_STRB_WIDTH ? axi_arsize_i :
+                   CLOG2_STRB_WIDTH[2:0];
                read_burst_next = axi_arburst_i;
 
                axi_arready_next = 1'b0;
@@ -338,9 +335,9 @@ module iob_axi_ram #(
                axi_rid_next    = read_id_reg;
                axi_rlast_next  = read_count_reg == 0;
                if (read_burst_reg != 2'b00) begin
-                  read_addr_next = read_addr_reg + (1 << read_size_reg);
+                  read_addr_next = read_addr_reg + (1'b1 << read_size_reg);
                end
-               read_count_next = read_count_reg - 1;
+               read_count_next = read_count_reg - 1'b1;
                if (read_count_reg > 0) begin
                   read_state_next = READ_STATE_BURST;
                end else begin

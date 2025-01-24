@@ -6,6 +6,7 @@
 def setup(py_params_dict):
     attributes_dict = {
         "version": "0.1",
+        "generate_hw": True,
         "confs": [
             {
                 "name": "W",
@@ -65,16 +66,16 @@ def setup(py_params_dict):
             encoded_o = {$clog2(W) {1'd0}};  //In case input is 0
             for (pos = W - 1; pos != -1; pos = pos - 1) begin
                if (unencoded_i[pos]) begin
-                  encoded_o = pos;
+                  encoded_o = pos[$clog2(W)-1:0];
                end
             end
          end
       end else begin : gen_highest_prio  //MODE == "HIGH"
          always @* begin
-            encoded_o = {$clog2(W) {1'd0}};  //In case input is 0
-            for (pos = {W{1'd0}}; pos < W; pos = pos + 1) begin
+            encoded_o = {$clog2(W){1'd0}};  //In case input is 0
+            for (pos = {$clog2(W){1'd0}}; pos < W; pos = pos + 1) begin
                if (unencoded_i[pos]) begin
-                  encoded_o = pos;
+                  encoded_o = pos[$clog2(W)-1:0];
                end
             end
          end
