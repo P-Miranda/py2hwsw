@@ -52,15 +52,6 @@ def setup(py_params_dict):
                 "descr": "Clock, clock enable and reset",
             },
             {
-                "name": "iob_s",
-                "signals": {
-                    "type": "iob",
-                    "ADDR_W": "ADDR_W - 2",
-                    "DATA_W": "DATA_W",
-                },
-                "descr": "CPU native interface",
-            },
-            {
                 "name": "interrupt_o",
                 "descr": "Interrupt signal",
                 "signals": [
@@ -324,7 +315,6 @@ def setup(py_params_dict):
                 ],
                 "connect": {
                     "clk_en_rst_s": "clk_en_rst_s",
-                    "control_if_s": "iob_s",
                     # Register interfaces
                     "soft_reset_o": "soft_reset",
                     "enable_o": "enable",
