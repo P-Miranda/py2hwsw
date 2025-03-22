@@ -4,9 +4,10 @@
 
 import copy
 import os
-import math
+import sys
 from latex import write_table
-from iob_base import find_obj_in_list
+from iob_base import find_obj_in_list, import_python_module
+from iob_core import find_module_setup_dir
 
 
 def setup(py_params_dict):
@@ -89,7 +90,14 @@ def setup(py_params_dict):
         # Extra Verilog parameters for this memory subblock
         extra_params = {}
         if "ram" in list_of_mems[-1]["type"]:
-            extra_params["MEM_NO_READ_ON_WRITE"] = "MEM_NO_READ_ON_WRITE"
+            # check if memory module has MEM_NO_READ_ON_WRITE conf
+            mem_name = list_of_mems[-1]["type"]
+            mem_dir, file_ext = find_module_setup_dir(mem_name)
+            import_python_module(os.path.join(mem_dir, mem_name))
+            mem_module = sys.modules[mem_name]
+            mem_dict = mem_module.setup({})
+            if "MEM_NO_READ_ON_WRITE" in mem_dict["confs"]:
+                extra_params["MEM_NO_READ_ON_WRITE"] = mem_dict["MEM_NO_READ_ON_WRITE"]
 
         attributes_dict["subblocks"].append(
             {
