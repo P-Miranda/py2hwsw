@@ -148,6 +148,7 @@ def setup(py_params_dict):
                     {"name": "data_rvalid_rd", "width": 1},
                     {"name": "data_ren_rd", "width": 1},
                     {"name": "data_rready_rd", "width": 1},
+                    {"name": "data_ready_rd", "width": 1},
                 ],
             },
             {
