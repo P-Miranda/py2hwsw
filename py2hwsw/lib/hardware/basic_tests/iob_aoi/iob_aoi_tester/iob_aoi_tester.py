@@ -18,52 +18,42 @@ core_dictionary = {
             "descr": "IO width",
         },
     ],
-    "buses": [
+    "wires": [
         {
             "name": "a",
             "descr": "AOI input port 1",
-            "wires": [
-                {"name": "a", "width": "W"},
-            ],
+            "width": "W",
         },
         {
             "name": "b",
             "descr": "AOI input port 2",
-            "wires": [
-                {"name": "b", "width": "W"},
-            ],
+            "width": "W",
         },
         {
             "name": "c",
             "descr": "AOI input port 3",
-            "wires": [
-                {"name": "c", "width": "W"},
-            ],
+            "width": "W",
         },
         {
             "name": "d",
             "descr": "AOI input port 4",
-            "wires": [
-                {"name": "d", "width": "W"},
-            ],
+            "width": "W",
         },
         {
             "name": "y",
             "descr": "AOI output port",
-            "wires": [
-                {"name": "y", "width": "W"},
-            ],
+            "width": "W",
         },
     ],
     "subblocks": [
         {
-            "core_name": "iob_aoi",
-            "instance_name": "uut_aoi",
-            "instance_description": "Unit Under Test",
+            "core": "ISSUER",  # "iob_aoi"
+            "name": "uut_aoi",
+            "description": "Unit Under Test",
             "parameters": {
-                "W": "1",
+                "W": "W",
             },
-            "connect": {
+            "portmap_connections": {
                 "a_i": "a",
                 "b_i": "b",
                 "c_i": "c",

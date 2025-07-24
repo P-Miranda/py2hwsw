@@ -335,7 +335,7 @@ class iob_instance(iob_base):
         block_name: str, iob_parameters: dict = {}, block_dict: dict = {}
     ):
         """
-        Find a block based on given block_name and instatiate it.
+        Find a block based on given block_name and instantiate it.
 
         Attributes:
             block (str): The name of the block to instantiate. Will search for <block>.py or <block>.json files.
@@ -376,6 +376,21 @@ class iob_instance(iob_base):
         #     block_obj.setup_dir = block_dir
 
         return instance_obj
+
+    @staticmethod
+    def blank_instance(
+        block_dict: dict = {}
+    ):
+        """
+        Create a blank instance of a block without creating the block.
+        Only sets instance attributes, leaves core as None.
+
+        Attributes:
+            block_dict (dict): Dictionary of instance attributes to set on the instantiated block.
+        Returns:
+            iob_instance: The instantiated blank block object
+        """
+        return iob_instance(**block_dict, core=None)
 
     #
     # Other Py2HWSW interface methods

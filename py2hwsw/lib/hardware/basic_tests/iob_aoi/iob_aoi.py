@@ -208,11 +208,11 @@ core_dictionary = {
     ],
     "superblocks": [
         # Tester
-        # {
-        #     "core": "iob_aoi_tester",
-        #     "name": "iob_tester",
-        #     "dest_dir": "tester",
-        # },
+        {
+            "core": "iob_aoi_tester",
+            "name": "iob_tester",
+            "dest_dir": "tester",
+        },
     ],
 }
 
@@ -226,5 +226,5 @@ class iob_aoi(iob_core):
 
 
 if __name__ == "__main__":
-    iob_aoi_obj = iob_aoi(width=1)
+    iob_aoi_obj = iob_aoi(width=7)
     iob_aoi_obj.generate_build_dir()

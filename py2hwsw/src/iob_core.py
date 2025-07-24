@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import importlib
+import json
 import os
 import shutil
 from pathlib import Path
@@ -32,6 +33,7 @@ from iob_base import (
     update_obj_from_dict,
     parse_short_notation_text,
     find_common_deep,
+    import_python_module,
 )
 from py2hwsw_version import PY2HWSW_VERSION
 import sw_tools
@@ -189,7 +191,7 @@ class iob_core(iob_module):
         "Selects if core is top module."
         self.is_top_module = __class__.global_top_module == self
         "Selects if core is superblock of another."
-        self.is_superblock = False # FIXME: Auto fill
+        self.is_superblock = self.__check_if_superblock(core_dictionary)
         "Store reference to the issuer block."
         self.issuer = None # FIXME: Auto fill
         "Selects if core is parent of another."
@@ -215,8 +217,9 @@ class iob_core(iob_module):
             core_dict_with_objects["wires"] = [create_wire_from_dict(i) for i in core_dictionary.get("wires", [])]
             core_dict_with_objects["buses"] = [create_bus_from_dict(i) for i in core_dictionary.get("buses", [])]
             core_dict_with_objects["snippets"] = [create_snippet_from_dict(i) for i in core_dictionary.get("snippets", [])]
-            core_dict_with_objects["subblocks"] = [create_instance_from_dict(i) for i in core_dictionary.get("subblocks", [])]
-            core_dict_with_objects["superblocks"] = [__class__.create_core_from_dict(i) for i in core_dictionary.get("superblocks", [])]
+            core_dict_with_objects["subblocks"] = self.__process_subblocks(core_dictionary.get("subblocks", []))
+            print(f"DEBUG: Superblocks: {core_dictionary.get('superblocks', [])}")
+            core_dict_with_objects["superblocks"] = [self.__create_superblock_from_dict(i) for i in core_dictionary.get("superblocks", [])]
             core_dict_with_objects["sw_modules"] = [__class__.create_core_from_dict(i) for i in core_dictionary.get("sw_modules", [])]
             core_dict_with_objects["iob_parameters"] = [create_iob_parameter_group_from_dict(i) for i in core_dictionary.get("iob_parameters", [])]
             update_obj_from_dict(self, core_dict_with_objects)  # valid_attributes_list=...)
@@ -245,6 +248,37 @@ class iob_core(iob_module):
         self.name = self.name or self.original_name
 
         return
+
+    def __check_if_superblock(self, core_dictionary: dict = {}):
+        """
+        Check if core is a superblock. Core is a superblock if one of subblocks is ISSUER
+        """
+        is_superblock = False
+        if core_dictionary:
+            for subblock in core_dictionary.get("subblocks", []):
+                if subblock.get("core", "") == "ISSUER":
+                    is_superblock = True
+                    break
+        return is_superblock
+
+    def __process_subblocks(self, subblocks: list = []):
+        """
+        Process subblocks:
+            - create iob_instance for regular subblocks
+            - create blank instance for ISSUER subblock
+        """
+        blocks: list = []
+        # Lazy import instance methods to avoid circular dependecies
+        blank_instance = getattr(importlib.import_module('iob_instance'), 'iob_instance').blank_instance
+        create_instance_from_dict = getattr(importlib.import_module('iob_instance'), 'iob_instance').create_instance_from_dict
+        for subblock in subblocks:
+            if subblock.get("core", "") == "ISSUER":
+                # Create blank instance for ISSUER subblock
+                subblock.pop("core", None)  # Remove 'core' key from subblock dict
+                blocks.append(blank_instance(subblock))
+            else:
+                blocks.append(create_instance_from_dict(subblock))
+        return blocks
 
     def generate_build_dir(self, **kwargs):
         """
@@ -476,6 +510,52 @@ class iob_core(iob_module):
             rules_file_path=__class__.global_clang_format_rules_filepath,
         )
 
+    def __create_block(
+        block_name: str, iob_parameters: dict = {},
+    ):
+        """
+        Find a block based on given block_name and call its constructor.
+
+        Attributes:
+            block (str): The name of the block to create. Will search for <block>.py or <block>.json files.
+                        If <block>.py is found, it must contain a class called <block> that extends iob_block. This class will be used to create the block.
+                        If <block>.json is found, its contents will be read and parsed by the block_from_dict(<json_contents>) function.
+            iob_parameters (dict): Optional. Dictionary of IOb parameters to pass to the created block.
+                                      Elements from this dictionary will be passed as **kwargs to the block's constructor.
+                                      Only applicable if instantiated block has a constructor that accepts IOb parameters (excludes blocks defined in JSON or purely by dictionary).
+        Returns:
+            iob_core: The created block object
+        """
+        block_dir, file_ext = __class__.find_module_setup_dir(block_name)
+
+        if file_ext == ".py":
+            block_module = import_python_module(
+                os.path.join(block_dir, f"{block_name}.py"),
+            )
+
+            # Create block (call constructor from class defined inside the .py file)
+            block_class = getattr(block_module, block_name)
+            block_obj = block_class(**iob_parameters)
+
+        elif file_ext == ".json":
+            block_obj = __class__.create_core_from_dict(
+                json.load(open(os.path.join(block_dir, f"{block_name}.json")))
+            )
+
+        return block_obj
+
+    def __create_superblock_from_dict(self, superblock_dict: dict = {}):
+        # Call superblock constructor
+        core = superblock_dict.pop("core", "")
+        iob_parameters = superblock_dict.pop("iob_parameters", {})
+        superblock = __class__.__create_block(block_name=core, iob_parameters=iob_parameters)
+        # associate this core with superblock ISSUER subblock
+        # The ISSUER subblock does not have core
+        for subblock in superblock.subblocks:
+            if not subblock.core:
+                subblock.core = self
+        return superblock
+
     @staticmethod
     def find_module_setup_dir(core_name, error_on_not_found=True):
         """Searches for a core's setup directory
@@ -483,6 +563,7 @@ class iob_core(iob_module):
         returns: The path to the setup directory
         returns: The file extension
         """
+        breakpoint()
         file_path = find_file(
             iob_core.global_project_root, core_name, [".py", ".json"]
         ) or find_file(
@@ -564,7 +645,7 @@ class iob_core(iob_module):
                 - comb -> iob_module.comb = create_comb_from_dict(comb)
                 - fsm -> iob_module.fsm = create_fsm_from_dict(fsm)
                 - subblocks -> iob_module.subblocks = [iob_instance.create_instance_from_dict(i) for i in subblocks]
-                - superblocks -> iob_module.superblocks = [iob_core.create_core_from_dict(i) for i in superblocks]
+                - superblocks -> iob_module.superblocks = [iob_core.__create_superblock_from_dict(i) for i in superblocks]
                 - sw_modules -> iob_module.sw_modules = [iob_core.create_core_from_dict(i) for i in sw_modules]
 
                 # Core keys
