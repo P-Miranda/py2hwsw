@@ -186,9 +186,9 @@ class iob_core(iob_module):
         "Selects if core is superblock of another."
         self.is_superblock = self.__check_if_superblock(core_dictionary)
         "Store reference to the issuer block."
-        self.issuer = None # FIXME: Auto fill
+        self.issuer = None  # set in self.__create_superblock_from_dict()
         "Selects if core is parent of another."
-        self.is_parent = False # FIXME: Do we still need this?
+        self.is_parent = False  # FIXME: Do we still need this?
 
         # Attributes with automatic default values
         # self.previous_version = self.version # FIXME: Should this be updated later? (For example, if version is changed afterwards?)
@@ -202,9 +202,7 @@ class iob_core(iob_module):
                 fail_with_msg("The 'core' and 'iob_parameters' keys cannot be used in core dictionaries passed directly to the core constructor!")
             # Convert core dictionary elements to objects
             core_dict_with_objects = core_dictionary.copy()
-            for c in core_dictionary.get("confs", []):
-                if "type" in c:
-                    breakpoint()
+
             core_dict_with_objects["confs"] = [iob_conf.create_from_dict(i) for i in core_dictionary.get("confs", [])]
             core_dict_with_objects["ports"] = [iob_port.create_from_dict(i) for i in core_dictionary.get("ports", [])]
             core_dict_with_objects["wires"] = [iob_wire.create_from_dict(i) for i in core_dictionary.get("wires", [])]
@@ -288,7 +286,7 @@ class iob_core(iob_module):
         # Generate build dir of subblocks
         for subblock in self.subblocks:
             if self.is_superblock:
-                if subblock.original_name == self.issuer.original_name:
+                if subblock.core.original_name == self.issuer.original_name:
                     # skip build dir generation for issuer subblocks
                     continue
             subblock.core.generate_build_dir()
@@ -521,8 +519,12 @@ class iob_core(iob_module):
         block_dir, file_ext = __class__.find_module_setup_dir(block_name)
 
         if file_ext == ".py":
+            extra_namespace_objs = {
+                'iob_core': iob_core,
+            }
             block_module = import_python_module(
                 os.path.join(block_dir, f"{block_name}.py"),
+                extra_namespace_objs=extra_namespace_objs,
             )
 
             # Create block (call constructor from class defined inside the .py file)
@@ -541,7 +543,10 @@ class iob_core(iob_module):
         core = superblock_dict.pop("core", "")
         iob_parameters = superblock_dict.pop("iob_parameters", {})
         superblock = __class__.__create_block(block_name=core, iob_parameters=iob_parameters)
+        # update superblock core attributes with remaining superblock_dict keys
+        update_obj_from_dict(superblock, superblock_dict)
         # associate this core with superblock ISSUER subblock
+        superblock.issuer = self
         # The ISSUER subblock does not have core
         for subblock in superblock.subblocks:
             if not subblock.core:

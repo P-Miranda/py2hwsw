@@ -11,10 +11,10 @@ core_dictionary = {
     "confs": [
         {
             "name": "W",
-            "type": "P",
-            "val": "21",
-            "min": "1",
-            "max": "32",
+            "kind": "P",
+            "value": "21",
+            "min_value": "1",
+            "max_value": "32",
             "descr": "IO width",
         },
     ],
