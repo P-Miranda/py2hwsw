@@ -10,6 +10,7 @@ from latex import write_table
 
 from iob_wire import iob_wire
 from iob_port import iob_port
+from iob_portmap import iob_portmap
 import param_gen
 from iob_base import fail_with_msg, find_obj_in_list
 

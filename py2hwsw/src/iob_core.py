@@ -193,6 +193,29 @@ class iob_core(iob_module):
         # Attributes with automatic default values
         # self.previous_version = self.version # FIXME: Should this be updated later? (For example, if version is changed afterwards?)
 
+        # set core attributes directly from core dictionary
+        update_obj_from_dict(self, core_dictionary)
+
+        # Set global build directory
+        if self.is_top_module:
+            # FIXME: Ideally make this copy by reference, so that updates to the top's build dir are reflected across all cores
+            __class__.global_build_dir = self.build_dir
+
+        # Tester case
+        backup_build_dir = __class__.global_build_dir
+        if self.is_tester:
+            self.relative_path_to_tester = self.dest_dir
+            self.dest_dir = "hardware/src"
+            # update tester build dir and all subblocks and superblocks
+            # Note: revert global_build_dir to original value before finishing __init__
+            __class__.global_build_dir = os.path.join(
+                __class__.global_build_dir, self.relative_path_to_tester
+            )
+            # relative path from this core (tester) to original build dir (UUT)
+            self.relative_path_to_UUT = os.path.relpath(
+                backup_build_dir, __class__.global_build_dir
+            )
+
         # Update current core's attributes with values from given core_dictionary
         if core_dictionary:
             # Lazy import instance to avoid circular dependecy
@@ -214,11 +237,6 @@ class iob_core(iob_module):
             core_dict_with_objects["iob_parameters"] = [iob_parameter_group.create_from_dict(i) for i in core_dictionary.get("iob_parameters", [])]
             update_obj_from_dict(self, core_dict_with_objects)  # valid_attributes_list=...)
 
-        # Set global build directory
-        if self.is_top_module:
-            # FIXME: Ideally make this copy by reference, so that updates to the top's build dir are reflected across all cores
-            __class__.global_build_dir = self.build_dir
-
         # Get name of (user's) subclass that is inheriting from iob_core
         # FIXME: subclass_name=type(self.get_api_obj()).__name__
         # TEMPFIX:
@@ -236,6 +254,10 @@ class iob_core(iob_module):
 
         # Use original name as default name
         self.name = self.name or self.original_name
+
+        # Restore global_build_dir (previously changed for tester blocks)
+        if self.is_tester:
+            __class__.global_build_dir = backup_build_dir
 
         return
 
@@ -258,14 +280,13 @@ class iob_core(iob_module):
             - create blank instance for ISSUER subblock
         """
         blocks: list = []
-        # Lazy import instance methods to avoid circular dependecies
-        blank_instance = getattr(importlib.import_module('iob_instance'), 'iob_instance').blank_instance
+        # Lazy import instance method to avoid circular dependecies
         instance_from_dict = getattr(importlib.import_module('iob_instance'), 'iob_instance').create_from_dict
         for subblock in subblocks:
             if subblock.get("core", "") == "ISSUER":
                 # Create blank instance for ISSUER subblock
                 subblock.pop("core", None)  # Remove 'core' key from subblock dict
-                blocks.append(blank_instance(subblock))
+                blocks.append(instance_from_dict(subblock))
             else:
                 blocks.append(instance_from_dict(subblock))
         return blocks
@@ -295,12 +316,6 @@ class iob_core(iob_module):
         if self.is_top_module or self.is_superblock:
             for superblock in self.superblocks:
                 superblock.generate_build_dir()
-
-        if self.is_tester:
-            # FIXME: Tester hack? Is this still needed?
-            self.relative_path_to_UUT = os.path.relpath(
-                __class__.global_build_dir, self.build_dir
-            )
 
         # Copy files from LIB to setup various flows
         # (should run before copy of files from module's setup dir)
@@ -560,7 +575,6 @@ class iob_core(iob_module):
         returns: The path to the setup directory
         returns: The file extension
         """
-        breakpoint()
         file_path = find_file(
             iob_core.global_project_root, core_name, [".py", ".json"]
         ) or find_file(
