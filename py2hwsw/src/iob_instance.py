@@ -48,6 +48,12 @@ class iob_instance(iob_base):
     parameters: dict[str, int | str] = empty_dict()
     instantiate: bool = True
 
+    def __post_init__(self):
+        # try to connect portmaps with respective core port
+        if self.core:
+            for portmap in self.portmap_connections:
+                portmap.connect_port(self.core.ports)
+
     def validate_attributes(self):
         """Validate instance attributes"""
         if not self.name:
@@ -367,8 +373,6 @@ class iob_instance(iob_base):
                 block_obj = iob_core.create_from_dict(
                     json.load(open(os.path.join(block_dir, f"{block_name}.json")))
                 )
-        else:
-            breakpoint()
 
         # Create instance of block
         instance_obj = iob_instance(**block_dict, core=block_obj)

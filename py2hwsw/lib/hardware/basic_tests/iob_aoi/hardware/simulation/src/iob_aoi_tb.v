@@ -28,7 +28,9 @@ module iob_aoi_tb;
     $finish();
   end
 
-  iob_aoi iob_aoi_inst (
+  iob_aoi #(
+      .W(1)
+  ) iob_aoi_inst (
       .a_i(data_i[0]),
       .b_i(data_i[1]),
       .c_i(data_i[2]),

@@ -68,14 +68,17 @@ core_dictionary = {
    // Tester body / verification code
    // Currently using non-synthesizable code
 
-   reg     [3:0] data_i = 0;
-   wire          data_o;
+   reg     [W-1:0] a_reg = 0;
+   reg     [W-1:0] b_reg = 0;
+   reg     [W-1:0] c_reg = 0;
+   reg     [W-1:0] d_reg = 0;
+   wire          aoi_out;
 
-   assign a = data_i[0];
-   assign b = data_i[1];
-   assign c = data_i[2];
-   assign d = data_i[3];
-   assign data_o = y;
+   assign a = a_reg;
+   assign b = b_reg;
+   assign c = c_reg;
+   assign d = d_reg;
+   assign aoi_out = y;
 
    integer       i;
    integer       fp;
@@ -83,8 +86,18 @@ core_dictionary = {
    initial begin
 
       for (i = 0; i < 16; i = i + 1) begin
-         #10 data_i = i[3:0];
-         #10 $display("data_i = %b, data_o = %b", data_i, data_o);
+           #10 a_reg = {W{i[3]}};
+               b_reg = {W{i[2]}};
+               c_reg = {W{i[1]}};
+               d_reg = {W{i[0]}};
+      end
+
+      for (i = 0; i < 16; i = i + 1) begin
+         #10 a_reg = i[W-1:0];
+            b_reg = i[W-1:0];
+            c_reg = i[W-1:0];
+            d_reg = i[W-1:0];
+        #10 $display("a_reg = %b, b_reg = %b, c_reg = %b, d_reg = %b, aoi_out = %b", a_reg, b_reg, c_reg, d_reg, aoi_out);
       end
       #10 $display("%c[1;34m", 8'd27);
       $display("Test completed successfully.");
