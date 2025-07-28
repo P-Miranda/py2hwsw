@@ -224,7 +224,7 @@ class iob_core(iob_module):
             if "core" in core_dictionary or "iob_parameters" in core_dictionary:
                 fail_with_msg("The 'core' and 'iob_parameters' keys cannot be used in core dictionaries passed directly to the core constructor!")
             # Convert core dictionary elements to objects
-            core_dict_with_objects = core_dictionary.copy()
+            core_dict_with_objects = {}
 
             core_dict_with_objects["confs"] = [iob_conf.create_from_dict(i) for i in core_dictionary.get("confs", [])]
             core_dict_with_objects["ports"] = [iob_port.create_from_dict(i) for i in core_dictionary.get("ports", [])]
@@ -254,6 +254,9 @@ class iob_core(iob_module):
 
         # Use original name as default name
         self.name = self.name or self.original_name
+
+        if not self.is_top_module:
+            self.build_dir = __class__.global_build_dir
 
         # Restore global_build_dir (previously changed for tester blocks)
         if self.is_tester:

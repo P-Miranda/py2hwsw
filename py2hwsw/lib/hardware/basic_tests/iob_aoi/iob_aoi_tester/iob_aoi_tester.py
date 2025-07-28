@@ -90,13 +90,6 @@ core_dictionary = {
                b_reg = {W{i[2]}};
                c_reg = {W{i[1]}};
                d_reg = {W{i[0]}};
-      end
-
-      for (i = 0; i < 16; i = i + 1) begin
-         #10 a_reg = i[W-1:0];
-            b_reg = i[W-1:0];
-            c_reg = i[W-1:0];
-            d_reg = i[W-1:0];
         #10 $display("a_reg = %b, b_reg = %b, c_reg = %b, d_reg = %b, aoi_out = %b", a_reg, b_reg, c_reg, d_reg, aoi_out);
       end
       #10 $display("%c[1;34m", 8'd27);
@@ -115,7 +108,9 @@ core_dictionary = {
 
 
 class iob_aoi_tester(iob_core):
-    def __init__(self):
+    def __init__(self, **kwargs):
+        # update core_dictionary with kwargs / iob_parameters
+        core_dictionary.update(kwargs)
         super().__init__(core_dictionary)
 
 

@@ -118,7 +118,9 @@ core_dictionary = {
         {
             "core": "iob_aoi_tester",
             "name": "iob_tester",
-            "dest_dir": "tester",
+            "iob_parameters": {
+                "dest_dir": "tester",
+            },
         },
     ],
 }
